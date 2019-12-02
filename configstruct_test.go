@@ -85,8 +85,8 @@ func TestParse(t *testing.T) {
 	})
 }
 
+// Example for using `configstruct` with default values.
 func ExampleParse() {
-
 	// define a struct with tags
 	type Config struct {
 		Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
