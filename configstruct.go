@@ -1,4 +1,6 @@
-package configstruct
+// Package configstruct provides a parse function to fill a config struct
+// with values from cli flags or environment
+package configstruct // import "github.com/pteich/configstruct"
 
 import (
 	"flag"

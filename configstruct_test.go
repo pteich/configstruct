@@ -2,6 +2,7 @@ package configstruct
 
 import (
 	"flag"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
@@ -82,4 +83,27 @@ func TestParse(t *testing.T) {
 		assert.Equal(t, "myhost", conf.Hostname)
 		assert.True(t, conf.Debug)
 	})
+}
+
+func ExampleParse() {
+
+	// define a struct with tags
+	type Config struct {
+		Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
+		Port     int    `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
+		Debug    bool   `env:"CONFIGSTRUCT_DEBUG" cli:"debug" usage:"debug mode"`
+	}
+
+	// create a variable of the struct type and define defaults if needed
+	conf := testConfig{
+		Hostname: "localhost",
+		Port:     8000,
+		Debug:    true,
+	}
+
+	// now parse values from first cli flags and then env into this var
+	err := Parse(&conf)
+	if err != nil {
+		fmt.Printf("can't parse config %s", err)
+	}
 }
