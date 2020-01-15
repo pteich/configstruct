@@ -11,8 +11,13 @@ import (
 	"strings"
 )
 
-// Parse uses a given struct c with tags and parses values from env or cli flags
+// Parse uses a given struct c with tags and parses values from env or cli flags, it uses the default FlagSet and os.Args
 func Parse(c interface{}) error {
+	return ParseWithFlagSet(flag.CommandLine, os.Args, c)
+}
+
+// ParseWithFlagSet can use a specific FlagSet and args slice to parse data from
+func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}) error {
 
 	// use reflection to deep dive into our struct
 	valueRef := reflect.ValueOf(c)
@@ -28,11 +33,13 @@ func Parse(c interface{}) error {
 		if cli != "" {
 			switch field.Type.Kind() {
 			case reflect.String:
-				flag.StringVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*string), cli, value.String(), usage)
+				flagSet.StringVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*string), cli, value.String(), usage)
 			case reflect.Bool:
-				flag.BoolVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*bool), cli, value.Bool(), usage)
+				flagSet.BoolVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*bool), cli, value.Bool(), usage)
 			case reflect.Int:
-				flag.IntVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*int), cli, int(value.Int()), usage)
+				flagSet.IntVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*int), cli, int(value.Int()), usage)
+			case reflect.Float64:
+				flagSet.Float64Var(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*float64), cli, value.Float(), usage)
 			default:
 				return fmt.Errorf("config cli type %s not implemented", field.Type.Name())
 			}
@@ -40,7 +47,7 @@ func Parse(c interface{}) error {
 	}
 
 	// parse cli flags
-	flag.Parse()
+	flagSet.Parse(cliArgs[1:])
 
 	// iterate over struct fields for env values
 	for i := 0; i < confType.NumField(); i++ {
@@ -61,6 +68,11 @@ func Parse(c interface{}) error {
 				value, err := strconv.ParseInt(envValue, 0, 64)
 				if err == nil {
 					valueRef.Elem().FieldByName(field.Name).SetInt(value)
+				}
+			case reflect.Float64:
+				value, err := strconv.ParseFloat(envValue, 64)
+				if err == nil {
+					valueRef.Elem().FieldByName(field.Name).SetFloat(value)
 				}
 			default:
 				return fmt.Errorf("config env type %s not implemented", field.Type.Name())
