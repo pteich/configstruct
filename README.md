@@ -21,8 +21,13 @@ conf := testConfig{
 err := configstruct.Parse(&conf)
 if err != nil {...}
 
-// if you prefer ENV with precedence over cli than use option
+// if you prefer env with precedence over cli than use option
 err := configstruct.Parse(&conf, configstruct.WithPrecedenceEnv())
 if err != nil {...}
+
+// you can also use a special option for the default first cli, then env
+err := configstruct.Parse(&conf, configstruct.WithPrecedenceCli())
+if err != nil {...}
+
 
 ```
