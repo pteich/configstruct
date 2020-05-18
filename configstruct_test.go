@@ -16,7 +16,6 @@ type testConfig struct {
 }
 
 func TestParse(t *testing.T) {
-
 	t.Run("valid cli fields", func(t *testing.T) {
 		cliArgs := []string{"command", "-hostname=localhost", "-port=8080", "-debug=true", "-floatValue=100.5"}
 		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
@@ -30,7 +29,6 @@ func TestParse(t *testing.T) {
 		assert.Equal(t, "localhost", conf.Hostname)
 		assert.True(t, conf.Debug)
 		assert.Equal(t, 100.5, conf.FloatValue)
-
 	})
 
 	t.Run("set using env fields", func(t *testing.T) {
@@ -45,7 +43,7 @@ func TestParse(t *testing.T) {
 
 		conf := testConfig{}
 
-		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf, WithPrecedenceEnv())
 		assert.NoError(t, err)
 
 		assert.Equal(t, 9000, conf.Port)
@@ -64,7 +62,7 @@ func TestParse(t *testing.T) {
 
 		conf := testConfig{}
 
-		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf, WithPrecedenceEnv())
 		assert.NoError(t, err)
 
 		assert.Equal(t, 9000, conf.Port)
@@ -75,6 +73,8 @@ func TestParse(t *testing.T) {
 	t.Run("cli with defaults", func(t *testing.T) {
 		os.Args = []string{"command", "-hostname", "myhost"}
 		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+
+		os.Clearenv()
 
 		conf := testConfig{
 			Hostname:   "localhost",
@@ -91,6 +91,20 @@ func TestParse(t *testing.T) {
 		assert.True(t, conf.Debug)
 		assert.Equal(t, 300.1, conf.FloatValue)
 	})
+
+	t.Run("not implemented types", func(t *testing.T) {
+		cliArgs := []string{"command", "-hostname=localhost", "-port=8080", "-debug=true", "-floatValue=100.5"}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+
+		conf := struct {
+			Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
+			Port     int64  `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
+		}{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.Error(t, err)
+	})
+
 }
 
 // Example for using `configstruct` with default values.
