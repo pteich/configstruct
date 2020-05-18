@@ -29,5 +29,11 @@ if err != nil {...}
 err := configstruct.Parse(&conf, configstruct.WithPrecedenceCli())
 if err != nil {...}
 
+// after parsing you can pass through you config struct and access values
+port := conf.Port
+host := conf.Hostname
+if conf.Debug {...}
+
+
 
 ```
