@@ -17,9 +17,12 @@ conf := testConfig{
     Debug:    true,
 }
 
-// now parse values from first cli flags and then env into this var
+// now parse values from first env and then cli into this var
 err := configstruct.Parse(&conf)
 if err != nil {...}
 
+// if you prefer ENV with precedence over cli than use option
+err := configstruct.Parse(&conf, configstruct.WithPrecedenceEnv())
+if err != nil {...}
 
 ```
