@@ -1,7 +1,8 @@
 # configstruct
-Simple Go module to parse a configuration from environment and cli flags using struct tags.
+Simple Go module to parse a configuration from environment values and CLI flags using struct tags.
+Starting with v1.3.0 there there is also support for CLI commands and subcommands
 
-Usage
+## Usage without commands
 ```Go
 // define a struct with tags for env name, cli flag and usage
 type Config struct {
@@ -33,7 +34,49 @@ if err != nil {...}
 port := conf.Port
 host := conf.Hostname
 if conf.Debug {...}
+```
 
+## Usage with commands
+The program with global flags and a command `count` should be called like this:
+````bash
+mycmd -hostname localhost count -number 2
 
+```` 
 
+This is the code to model this behaviour:
+
+```Go
+// define a struct with tags for env name, cli flag and usage
+type RootConfig struct {
+	Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
+	Debug    bool   `env:"CONFIGSTRUCT_DEBUG" cli:"debug" usage:"debug mode"`
+}
+
+type CountConfig struct {
+    Number int `cli:"number" usage:"number to count"`
+} 
+
+// create a variable of the struct type and define defaults if needed
+rootCfg := RootConfig{
+    Hostname: "localhost",
+    Debug:    true,
+}
+
+countCfg := CountConfig {
+    Number: 1
+}
+
+countCmd := NewCommand("count", &subConfig, func(cfg interface{}) error {
+    cfgValues := cfg.(*CountConfig)
+    ...
+    return nil
+})
+
+cmd := NewCommand("", &rootCfg, func(cfg interface{}) error {
+    cfgValues := cfg.(*RootConfig)
+    ...
+    return nil
+}, subCmd)
+
+err := cmd.ParseAndRun(os.Args)
 ```
