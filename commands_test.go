@@ -16,22 +16,24 @@ type subCmdConfig struct {
 }
 
 func TestCommand_ParseAndRun(t *testing.T) {
-	args := []string{"cliName", "-hostname", "localhost", "count", "-number", "2"}
+	args := []string{"cliName", "-hostname", "localhost", "math", "count", "-number", "2"}
 
 	var rootConfig rootCmdConfig
-	var subConfig subCmdConfig
+	var countConfig subCmdConfig
 
-	subCmd := NewCommand("count", &subConfig, func(cfg interface{}) error {
+	countCmd := NewCommand("count", &countConfig, func(cfg interface{}) error {
 		cfgValues := cfg.(*subCmdConfig)
-		t.Log("sub command", cfgValues.Number)
+		t.Log("count command", cfgValues.Number)
 		return nil
 	})
+
+	mathCmd := NewCommand("math", nil, nil, countCmd)
 
 	cmd := NewCommand("", &rootConfig, func(cfg interface{}) error {
 		cfgValues := cfg.(*rootCmdConfig)
 		t.Log("root command", cfgValues.Hostname)
 		return nil
-	}, subCmd)
+	}, mathCmd)
 
 	err := cmd.ParseAndRun(args)
 	if err != nil {

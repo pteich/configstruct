@@ -25,6 +25,11 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 		opt(&config)
 	}
 
+	if c == nil {
+		flagSet.Parse(cliArgs[1:])
+		return nil
+	}
+
 	// use reflection to deep dive into our struct
 	valueRef := reflect.ValueOf(c)
 	confType := valueRef.Elem().Type()

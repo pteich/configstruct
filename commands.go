@@ -36,7 +36,7 @@ func (c *Command) ParseAndRun(args []string, opts ...Option) error {
 		return err
 	}
 
-	if c.fs.Name() == "" || strings.EqualFold(c.fs.Name(), args[0]) {
+	if c.f != nil && (c.fs.Name() == "" || strings.EqualFold(c.fs.Name(), args[0])) {
 		err := c.f(c.config)
 		if err != nil {
 			return err
