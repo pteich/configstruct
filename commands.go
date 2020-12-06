@@ -26,6 +26,22 @@ type Command struct {
 // this struct is then set as argument for the function that is executed if the name matches
 func NewCommand(name string, config interface{}, f CommandFunc, subCommands ...*Command) *Command {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
+	fs.Usage = func() {
+		if name == "" {
+			fmt.Fprintf(fs.Output(), "Usage:\n")
+		} else {
+			fmt.Fprintf(fs.Output(), "Usage of %s:\n", name)
+		}
+		fs.PrintDefaults()
+
+		if len(subCommands) > 0 {
+			fmt.Fprintf(fs.Output(), "Available Subcommands: ")
+			for i := range subCommands {
+				fmt.Fprintf(fs.Output(), subCommands[i].fs.Name()+" ")
+			}
+			fmt.Fprintf(fs.Output(), "\n")
+		}
+	}
 
 	return &Command{
 		fs:           fs,
@@ -51,12 +67,23 @@ func (c *Command) ParseAndRun(args []string, opts ...Option) error {
 	}
 
 	args = c.fs.Args()
+	if len(c.subCommands) > 0 && len(args) == 0 {
+		c.fs.Usage()
+		return nil
+	}
+
 	if len(args) > 0 {
+		cmdFound := false
 		for i := range c.subCommands {
-			c.subCommands[i].rootCommand = c
 			if strings.EqualFold(c.subCommands[i].fs.Name(), args[0]) {
+				c.subCommands[i].rootCommand = c
+				cmdFound = true
 				c.subCommands[i].ParseAndRun(args)
 			}
+		}
+		if !cmdFound {
+			fmt.Fprintf(c.fs.Output(), "Command '%s' not defined\n\n", args[0])
+			c.fs.Usage()
 		}
 	}
 
