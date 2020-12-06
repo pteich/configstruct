@@ -1,6 +1,7 @@
 package configstruct
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -9,6 +10,10 @@ type rootCmdConfig struct {
 	Port       int     `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
 	Debug      bool    `env:"CONFIGSTRUCT_DEBUG" cli:"debug" usage:"debug mode"`
 	FloatValue float64 `env:"CONFIGSTRUCT_FLOAT" cli:"floatValue" usage:"float value"`
+}
+
+type testStruct struct {
+	testValue string
 }
 
 type subCmdConfig struct {
@@ -39,4 +44,18 @@ func TestCommand_ParseAndRun(t *testing.T) {
 	if err != nil {
 		t.Errorf("error should be nil but is %v", err)
 	}
+}
+
+func TestCommand_Dependencies(t *testing.T) {
+	c := NewCommand("testCmd", nil, nil)
+
+	test := &testStruct{testValue: "test"}
+
+	c.SetDependency("test", test)
+
+	testReturn, err := c.GetDependency("test")
+	assert.NoError(t, err)
+
+	assert.IsType(t, &testStruct{}, testReturn)
+	assert.Equal(t, "test", testReturn.(*testStruct).testValue)
 }
