@@ -7,7 +7,7 @@ import (
 )
 
 // CommandFunc is a function that is executed when a command is referenced in a CLI call
-type CommandFunc func(cfg interface{}) error
+type CommandFunc func(c *Command, cfg interface{}) error
 
 // Command defines a command that consists of a name (empty for root command), a struct that models all
 // flags, a function that is executed if the command matches and that gets the config struct as argument
@@ -60,7 +60,7 @@ func (c *Command) ParseAndRun(args []string, opts ...Option) error {
 	}
 
 	if c.f != nil && (c.fs.Name() == "" || strings.EqualFold(c.fs.Name(), args[0])) {
-		err := c.f(c.config)
+		err := c.f(c, c.config)
 		if err != nil {
 			return err
 		}
@@ -78,7 +78,9 @@ func (c *Command) ParseAndRun(args []string, opts ...Option) error {
 			if strings.EqualFold(c.subCommands[i].fs.Name(), args[0]) {
 				c.subCommands[i].rootCommand = c
 				cmdFound = true
-				c.subCommands[i].ParseAndRun(args)
+				if err := c.subCommands[i].ParseAndRun(args); err != nil {
+					return err
+				}
 			}
 		}
 		if !cmdFound {
