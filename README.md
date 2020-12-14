@@ -66,17 +66,50 @@ countCfg := CountConfig {
     Number: 1
 }
 
-countCmd := NewCommand("count", &subConfig, func(cfg interface{}) error {
+countCmd := NewCommand("count", &subConfig, func(c *configstruct.Command, cfg interface{}) error {
     cfgValues := cfg.(*CountConfig)
     ...
     return nil
 })
 
-cmd := NewCommand("", &rootCfg, func(cfg interface{}) error {
+cmd := NewCommand("", &rootCfg, func(c *configstruct.Command, cfg interface{}) error {
     cfgValues := cfg.(*RootConfig)
     ...
     return nil
 }, subCmd)
 
 err := cmd.ParseAndRun(os.Args)
+```
+
+## Share Dependencies accross Commands
+It is possible to share dependencies with the command functions `c.SetDependency(name, dep)` and `dep, err := c.GetDependency(name)`.
+If you for instance initialize a logger in the root command and register it as dependency every sub-command has
+access to it. Keep in mind that dependencies are saved as `interface{}` so you have to take care of asserting the right type.
+
+Taking the example from above further it could look like this:
+```Go
+type Logger struct {}
+
+countCmd := NewCommand("count", &subConfig, func(c *configstruct.Command, cfg interface{}) error {
+    cfgValues := cfg.(*CountConfig)
+	loggerDep, err := c.GetDependency("logger")
+	if err != nil {
+	    return err	
+	}
+	
+	logger := loggerDep.(*Logger)
+	
+    ...
+    return nil
+})
+
+cmd := NewCommand("", &rootCfg, func(c *configstruct.Command, cfg interface{}) error {
+    cfgValues := cfg.(*RootConfig)
+    logger := &Logger{}
+    c.SetDependency("logger", logger)
+    ...
+    return nil
+}, subCmd)
+
+
 ```
