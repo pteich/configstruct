@@ -26,7 +26,7 @@ func TestCommand_ParseAndRun(t *testing.T) {
 	var rootConfig rootCmdConfig
 	var countConfig subCmdConfig
 
-	countCmd := NewCommand("count", &countConfig, func(cfg interface{}) error {
+	countCmd := NewCommand("count", &countConfig, func(cmd *Command, cfg interface{}) error {
 		cfgValues := cfg.(*subCmdConfig)
 		t.Log("count command", cfgValues.Number)
 		return nil
@@ -34,7 +34,7 @@ func TestCommand_ParseAndRun(t *testing.T) {
 
 	mathCmd := NewCommand("math", nil, nil, countCmd)
 
-	cmd := NewCommand("", &rootConfig, func(cfg interface{}) error {
+	cmd := NewCommand("", &rootConfig, func(cmd *Command, cfg interface{}) error {
 		cfgValues := cfg.(*rootCmdConfig)
 		t.Log("root command", cfgValues.Hostname)
 		return nil

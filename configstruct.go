@@ -13,7 +13,7 @@ import (
 
 // Parse uses a given struct c with tags and parses values from env or cli flags, it uses the default FlagSet and os.Args
 func Parse(c interface{}, opts ...Option) error {
-	return ParseWithFlagSet(flag.CommandLine, os.Args, c, opts...)
+	return ParseWithFlagSet(flag.NewFlagSet(os.Args[0], flag.ContinueOnError), os.Args, c, opts...)
 }
 
 // ParseWithFlagSet can use a specific FlagSet and args slice to parse data from
