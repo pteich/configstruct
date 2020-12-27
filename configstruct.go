@@ -41,26 +41,41 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 			field := confType.Field(i)
 			value := valueRef.Elem().Field(i)
 			cli := field.Tag.Get("cli")
+			cliAlt := field.Tag.Get("cliAlt")
 			usage := field.Tag.Get("usage")
 
-			if cli != "" {
+			setFlag := func(name string) error {
 				switch field.Type.Kind() {
 				case reflect.String:
-					flagSet.StringVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*string), cli, value.String(), usage)
+					flagSet.StringVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*string), name, value.String(), usage)
 				case reflect.Bool:
-					flagSet.BoolVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*bool), cli, value.Bool(), usage)
+					flagSet.BoolVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*bool), name, value.Bool(), usage)
 				case reflect.Int:
-					flagSet.IntVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*int), cli, int(value.Int()), usage)
+					flagSet.IntVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*int), name, int(value.Int()), usage)
 				case reflect.Float64:
-					flagSet.Float64Var(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*float64), cli, value.Float(), usage)
+					flagSet.Float64Var(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*float64), name, value.Float(), usage)
 				default:
 					return fmt.Errorf("config cli type %s not implemented", field.Type.Name())
+				}
+
+				return nil
+			}
+
+			if cli != "" {
+				err := setFlag(cli)
+				if err != nil {
+					return err
+				}
+			}
+			if cliAlt != "" {
+				err := setFlag(cliAlt)
+				if err != nil {
+					return err
 				}
 			}
 		}
 
-		flagSet.Parse(cliArgs[1:])
-		return nil
+		return flagSet.Parse(cliArgs[1:])
 	}
 
 	parseEnv := func() error {
