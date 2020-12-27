@@ -10,7 +10,7 @@ import (
 
 type testConfig struct {
 	Hostname   string  `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
-	Port       int     `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
+	Port       int     `env:"CONFIGSTRUCT_PORT" cli:"port" cliAlt:"p" usage:"listen port"`
 	Debug      bool    `env:"CONFIGSTRUCT_DEBUG" cli:"debug" usage:"debug mode"`
 	FloatValue float64 `env:"CONFIGSTRUCT_FLOAT" cli:"floatValue" usage:"float value"`
 }
@@ -18,6 +18,21 @@ type testConfig struct {
 func TestParse(t *testing.T) {
 	t.Run("valid cli fields", func(t *testing.T) {
 		cliArgs := []string{"command", "-hostname=localhost", "-port=8080", "-debug=true", "-floatValue=100.5"}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+
+		conf := testConfig{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 8080, conf.Port)
+		assert.Equal(t, "localhost", conf.Hostname)
+		assert.True(t, conf.Debug)
+		assert.Equal(t, 100.5, conf.FloatValue)
+	})
+
+	t.Run("alternative cli field", func(t *testing.T) {
+		cliArgs := []string{"command", "-hostname=localhost", "-p=8080", "-debug=true", "-floatValue=100.5"}
 		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
 
 		conf := testConfig{}
