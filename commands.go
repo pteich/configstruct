@@ -24,9 +24,10 @@ type Command struct {
 // NewCommand creates a command that is triggered by the given name in the command line
 // all flags are defined by a struct that is parsed and filled with real values
 // this struct is then set as argument for the function that is executed if the name matches
-func NewCommand(name string, config interface{}, f CommandFunc, subCommands ...*Command) *Command {
+func NewCommand(name string, description string, config interface{}, f CommandFunc, subCommands ...*Command) *Command {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
 	fs.Usage = func() {
+		fmt.Fprint(fs.Output(), description+"\n\n")
 		if name == "" {
 			fmt.Fprintf(fs.Output(), "Usage:\n")
 		} else {
@@ -35,7 +36,7 @@ func NewCommand(name string, config interface{}, f CommandFunc, subCommands ...*
 		fs.PrintDefaults()
 
 		if len(subCommands) > 0 {
-			fmt.Fprintf(fs.Output(), "Available Subcommands: ")
+			fmt.Fprintf(fs.Output(), "\nAvailable Commands:\n")
 			for i := range subCommands {
 				fmt.Fprintf(fs.Output(), subCommands[i].fs.Name()+" ")
 			}
