@@ -12,7 +12,7 @@ type Config struct {
 }
 
 // create a variable of the struct type and define defaults if needed
-conf := testConfig{
+conf := Config{
     Hostname: "localhost",
     Port:     8000,
     Debug:    true,
@@ -81,7 +81,7 @@ cmd := NewCommand("", &rootCfg, func(c *configstruct.Command, cfg interface{}) e
 err := cmd.ParseAndRun(os.Args)
 ```
 
-## Share Dependencies accross Commands
+## Share dependencies across commands
 It is possible to share dependencies with the command functions `c.SetDependency(name, dep)` and `dep, err := c.GetDependency(name)`.
 If you for instance initialize a logger in the root command and register it as dependency every sub-command has
 access to it. Keep in mind that dependencies are saved as `interface{}` so you have to take care of asserting the right type.
