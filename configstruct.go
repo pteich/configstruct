@@ -34,6 +34,36 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 	valueRef := reflect.ValueOf(c)
 	confType := valueRef.Elem().Type()
 
+	// parse arguments
+	parseArgs := func() error {
+		// iterate over struct fields for arg flags
+		for i := 0; i < confType.NumField(); i++ {
+			field := confType.Field(i)
+			value := valueRef.Elem().Field(i)
+			name := field.Tag.Get("name")
+
+			required := field.Tag.Get("required") == "true"
+			arg, err := strconv.Atoi(field.Tag.Get("arg"))
+			if err != nil {
+				arg = -1
+			}
+
+			if arg > 0 {
+				argVal := flagSet.Arg(arg - 1)
+				if required && argVal == "" {
+					flagSet.Usage()
+					return fmt.Errorf("argument %s is required", name)
+				}
+
+				if required {
+					value.Set(reflect.ValueOf(argVal))
+				}
+			}
+		}
+
+		return nil
+	}
+
 	// parse cli flags
 	parseCli := func() error {
 		// iterate over struct fields for cli flags
@@ -55,7 +85,7 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 				case reflect.Float64:
 					flagSet.Float64Var(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*float64), name, value.Float(), usage)
 				default:
-					return fmt.Errorf("config cli type %s not implemented", field.Type.Name())
+					return fmt.Errorf("config cli type %s not implemented", field.Type.Kind())
 				}
 
 				return nil
@@ -123,6 +153,10 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 		if err != nil {
 			return err
 		}
+		err = parseArgs()
+		if err != nil {
+			return err
+		}
 
 		return nil
 	}
@@ -132,6 +166,10 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 		return err
 	}
 	err = parseCli()
+	if err != nil {
+		return err
+	}
+	err = parseArgs()
 	if err != nil {
 		return err
 	}

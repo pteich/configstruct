@@ -1,11 +1,12 @@
 # configstruct
-Simple Go module to parse a configuration from environment values and CLI flags using struct tags.
+Simple Go module to parse a configuration from environment values and CLI flags or arguments using struct tags.
 Starting with v1.3.0 there there is also support for CLI commands and subcommands
 
 ## Usage without commands
 ```Go
 // define a struct with tags for env name, cli flag and usage
 type Config struct {
+	Filename string `arg:"1" name:"filename" required:"true"`
 	Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
 	Port     int    `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
 	Debug    bool   `env:"CONFIGSTRUCT_DEBUG" cli:"debug" usage:"debug mode"`
@@ -18,7 +19,10 @@ conf := Config{
     Debug:    true,
 }
 
-// now parse values from first env and then cli into this var
+// imagine the programm is called like this:
+// ./myprogram -hostname=myhost -port=9000 testfile
+// the flag values (hostname, port) and argument (filename) are parsed into the struct
+// all pre-set defaults are overwritten if a value is provided otherwise it is left as is
 err := configstruct.Parse(&conf)
 if err != nil {...}
 
@@ -33,13 +37,18 @@ if err != nil {...}
 // after parsing you can pass through you config struct and access values
 port := conf.Port
 host := conf.Hostname
+filename := conf.Filename
 if conf.Debug {...}
+
+// cli arguments are also possible
+
 ```
 
 ## Usage with commands
+You can also define "commands" that can be used to execute callback functions. 
 The program with global flags and a command `count` should be called like this:
 ````bash
-mycmd -hostname localhost count -number 2
+mycmd -hostname=localhost count -number=2
 
 ```` 
 

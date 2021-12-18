@@ -3,9 +3,10 @@ package configstruct
 import (
 	"flag"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type testConfig struct {
@@ -114,6 +115,71 @@ func TestParse(t *testing.T) {
 		conf := struct {
 			Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
 			Port     int64  `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
+		}{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.Error(t, err)
+	})
+
+	t.Run("one required argument", func(t *testing.T) {
+		cliArgs := []string{"command", "-hostname=localhost", "-port=8080", "start"}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+
+		conf := struct {
+			Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
+			Port     int    `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
+			Command  string `arg:"1" name:"command" required:"true"`
+		}{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.NoError(t, err)
+		assert.Equal(t, "start", conf.Command)
+	})
+
+	t.Run("two arguments", func(t *testing.T) {
+		cliArgs := []string{"command", "-hostname=localhost", "-port=8080", "start", "myfile"}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+
+		conf := struct {
+			Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
+			Port     int    `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
+			Command  string `arg:"1" name:"command" required:"true"`
+			Filename string `arg:"2" name:"filename" required:"true"`
+		}{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.NoError(t, err)
+		assert.Equal(t, "start", conf.Command)
+		assert.Equal(t, "myfile", conf.Filename)
+	})
+
+	t.Run("arguments with defaults", func(t *testing.T) {
+		cliArgs := []string{"command", "-hostname=localhost", "-port=8080", "start"}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+
+		conf := struct {
+			Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
+			Port     int    `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
+			Command  string `arg:"1" name:"command" required:"true"`
+			Filename string `arg:"2" name:"filename"`
+		}{
+			Filename: "myfile",
+		}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.NoError(t, err)
+		assert.Equal(t, "start", conf.Command)
+		assert.Equal(t, "myfile", conf.Filename)
+	})
+
+	t.Run("required argument missing", func(t *testing.T) {
+		cliArgs := []string{"command", "-hostname=localhost", "-port=8080"}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+
+		conf := struct {
+			Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
+			Port     int    `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
+			Command  string `arg:"1" name:"command" required:"true"`
 		}{}
 
 		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
