@@ -1,6 +1,8 @@
 # configstruct
 Simple Go module to parse a configuration from environment values and CLI flags or arguments using struct tags.
-Starting with v1.3.0 there there is also support for CLI commands and subcommands
+Starting with v1.3.0 there is also support for CLI commands and subcommands
+
+Since v1.5.0 it is possible to define arguments that are also parsed into struct values.
 
 ## Usage without commands
 ```Go
