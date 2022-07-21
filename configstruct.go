@@ -55,7 +55,7 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 					return fmt.Errorf("argument %s is required", name)
 				}
 
-				if required {
+				if argVal != "" {
 					value.Set(reflect.ValueOf(argVal))
 				}
 			}
