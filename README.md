@@ -4,6 +4,9 @@ Starting with v1.3.0 there is also support for CLI commands and subcommands
 
 Since v1.5.0 it is possible to define arguments that are also parsed into struct values.
 
+Starting with v1.6.0 parsing a config file is supported (YAML only for now). Use `WithYamlConfig(path)` option to pass
+a path to a YAML file that should be parsed. Values passed by flag or env will override values from the config file.
+
 ## Usage without commands
 ```Go
 // define a struct with tags for env name, cli flag and usage

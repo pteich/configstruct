@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Parse uses a given struct c with tags and parses values from env or cli flags, it uses the default FlagSet and os.Args
@@ -28,6 +30,14 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 	if c == nil {
 		flagSet.Parse(cliArgs[1:])
 		return nil
+	}
+
+	// read config file if set
+	if config.file != "" {
+		err := readConfigFile(c, config)
+		if err != nil {
+			return err
+		}
 	}
 
 	// use reflection to deep dive into our struct
@@ -172,6 +182,48 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 	err = parseArgs()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+type structFlag struct {
+	name         string
+	description  string
+	defaultValue interface{}
+}
+
+func getStructFlags(c interface{}) []structFlag {
+	f := make([]structFlag, 0)
+
+	valueRef := reflect.ValueOf(c)
+	confType := valueRef.Elem().Type()
+
+	for i := 0; i < confType.NumField(); i++ {
+		field := confType.Field(i)
+		value := valueRef.Elem().Field(i)
+		cli := field.Tag.Get("cli")
+		usage := field.Tag.Get("usage")
+
+		f = append(f, structFlag{
+			name:         cli,
+			description:  usage,
+			defaultValue: value,
+		})
+	}
+
+	return f
+}
+
+func readConfigFile(c interface{}, cfg config) error {
+	f, err := os.Open(cfg.file)
+	if err != nil {
+		return fmt.Errorf("could not open config file %s: %w", cfg.file, err)
+	}
+
+	err = yaml.NewDecoder(f).Decode(c)
+	if err != nil {
+		return fmt.Errorf("could not decode yaml config file %s: %w", cfg.file, err)
 	}
 
 	return nil
