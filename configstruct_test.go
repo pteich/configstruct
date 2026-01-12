@@ -186,6 +186,67 @@ func TestParse(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("save and load yaml", func(t *testing.T) {
+		type Config struct {
+			Hostname string `yaml:"hostname" cli:"hostname"`
+			Port     int    `yaml:"port" cli:"port"`
+		}
+
+		conf := Config{Hostname: "test", Port: 1234}
+		tmpFile := "test_save.yaml"
+		defer os.Remove(tmpFile)
+
+		err := Save(tmpFile, &conf)
+		assert.NoError(t, err)
+
+		conf2 := Config{}
+		err = ParseWithFlagSet(flag.NewFlagSet("test", flag.ContinueOnError), []string{"test"}, &conf2, WithYamlConfig(tmpFile))
+		assert.NoError(t, err)
+
+		assert.Equal(t, conf.Hostname, conf2.Hostname)
+		assert.Equal(t, conf.Port, conf2.Port)
+	})
+
+	t.Run("dynamic config path via cli", func(t *testing.T) {
+		type Config struct {
+			ConfigPath string `cli:"config" config:"true"`
+			Hostname   string `yaml:"hostname" cli:"hostname"`
+		}
+
+		tmpFile := "test_dynamic.yaml"
+		defer os.Remove(tmpFile)
+
+		Save(tmpFile, &Config{Hostname: "dynamic-host"})
+
+		conf := Config{}
+		cliArgs := []string{"test", "-config", tmpFile}
+		err := ParseWithFlagSet(flag.NewFlagSet("test", flag.ContinueOnError), cliArgs, &conf)
+		assert.NoError(t, err)
+		assert.Equal(t, "dynamic-host", conf.Hostname)
+		assert.Equal(t, tmpFile, conf.ConfigPath)
+	})
+
+	t.Run("dynamic config path via env", func(t *testing.T) {
+		type Config struct {
+			ConfigPath string `env:"MY_CONFIG" config:"true"`
+			Hostname   string `yaml:"hostname"`
+		}
+
+		tmpFile := "test_dynamic_env.yaml"
+		defer os.Remove(tmpFile)
+
+		Save(tmpFile, &Config{Hostname: "dynamic-host-env"})
+
+		os.Setenv("MY_CONFIG", tmpFile)
+		defer os.Unsetenv("MY_CONFIG")
+
+		conf := Config{}
+		err := ParseWithFlagSet(flag.NewFlagSet("test", flag.ContinueOnError), []string{"test"}, &conf)
+		assert.NoError(t, err)
+		assert.Equal(t, "dynamic-host-env", conf.Hostname)
+		assert.Equal(t, tmpFile, conf.ConfigPath)
+	})
+
 }
 
 // Example for using `configstruct` with default values.

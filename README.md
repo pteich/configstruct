@@ -6,15 +6,26 @@ Since v1.5.0 it is possible to define arguments that are also parsed into struct
 
 Starting with v1.6.0 parsing a config file is supported (YAML only for now). Use `WithYamlConfig(path)` option to pass
 a path to a YAML file that should be parsed. Values passed by flag or env will override values from the config file.
+Alternatively you can use a struct tag `config:"true"` on a field to specify the config file path via CLI flag or ENV.
+
+Since v1.7.0 you can also save your config back to a YAML file using `configstruct.Save(path, &conf)`. The YAML library supports custom tags for field naming using `yaml:"customName"`.
+
+### Config File Path Resolution
+
+The config file path can be specified in several ways (in order of precedence):
+
+1. **Explicit Option**: Via `WithYamlConfig(path)` when calling `Parse` or `ParseWithFlagSet`.
+2. **Dynamic via Struct Tag**: If no explicit path is provided, the library checks for a field with `config:"true"`. It first looks in environment variables (using the field's `env` tag), then in CLI arguments (using the field's `cli` tag).
+3. **Default**: If none of the above are found, no config file is loaded.
 
 ## Usage without commands
 ```Go
 // define a struct with tags for env name, cli flag and usage
 type Config struct {
 	Filename string `arg:"1" name:"filename" required:"true"`
-	Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" usage:"hostname value"`
-	Port     int    `env:"CONFIGSTRUCT_PORT" cli:"port" usage:"listen port"`
-	Debug    bool   `env:"CONFIGSTRUCT_DEBUG" cli:"debug" usage:"debug mode"`
+	Hostname string `env:"CONFIGSTRUCT_HOSTNAME" cli:"hostname" yaml:"host" usage:"hostname value"`
+	Port     int    `env:"CONFIGSTRUCT_PORT" cli:"port" yaml:"port_num" usage:"listen port"`
+	Debug    bool   `env:"CONFIGSTRUCT_DEBUG" cli:"debug" yaml:"debug_mode" usage:"debug mode"`
 }
 
 // create a variable of the struct type and define defaults if needed
@@ -44,6 +55,14 @@ port := conf.Port
 host := conf.Hostname
 filename := conf.Filename
 if conf.Debug {...}
+
+// you can also save the config back to a YAML file
+err = configstruct.Save("config.yaml", &conf)
+
+// The saved YAML will use the custom field names from the `yaml` tags:
+// host: localhost
+// port_num: 8000
+// debug_mode: true
 
 // cli arguments are also possible
 
@@ -93,6 +112,9 @@ cmd := NewCommand("", &rootCfg, func(c *configstruct.Command, cfg interface{}) e
 }, subCmd)
 
 err := cmd.ParseAndRun(os.Args)
+
+// you can also save the command config back to a YAML file
+err = cmd.Save("config.yaml")
 ```
 
 ## Share dependencies across commands

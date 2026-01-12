@@ -111,3 +111,11 @@ func (c *Command) GetDependency(name string) (interface{}, error) {
 
 	return c.rootCommand.GetDependency(name)
 }
+
+// Save writes the current command config to a YAML file
+func (c *Command) Save(path string) error {
+	if c.config == nil {
+		return fmt.Errorf("no config defined for this command")
+	}
+	return Save(path, c.config)
+}

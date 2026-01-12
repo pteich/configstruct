@@ -1,8 +1,10 @@
 package configstruct
 
 import (
-	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type rootCmdConfig struct {
@@ -58,4 +60,21 @@ func TestCommand_Dependencies(t *testing.T) {
 
 	assert.IsType(t, &testStruct{}, testReturn)
 	assert.Equal(t, "test", testReturn.(*testStruct).testValue)
+}
+
+func TestCommand_Save(t *testing.T) {
+	type Config struct {
+		Hostname string `yaml:"hostname" cli:"hostname"`
+	}
+	conf := Config{Hostname: "test"}
+	cmd := NewCommand("test", "test", &conf, nil)
+
+	tmpFile := "test_cmd_save.yaml"
+	defer os.Remove(tmpFile)
+
+	err := cmd.Save(tmpFile)
+	assert.NoError(t, err)
+
+	_, err = os.Stat(tmpFile)
+	assert.NoError(t, err)
 }

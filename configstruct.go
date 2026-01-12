@@ -32,6 +32,44 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 		return nil
 	}
 
+	// use reflection to deep dive into our struct
+	valueRef := reflect.ValueOf(c)
+	confType := valueRef.Elem().Type()
+
+	// check if we have a config path in the struct
+	if config.file == "" {
+		for i := 0; i < confType.NumField(); i++ {
+			field := confType.Field(i)
+			if field.Tag.Get("config") == "true" {
+				// check env
+				env := field.Tag.Get("env")
+				if env != "" {
+					if val, found := os.LookupEnv(env); found {
+						config.file = val
+						break
+					}
+				}
+				// check cli args
+				cli := field.Tag.Get("cli")
+				if cli != "" {
+					for j, arg := range cliArgs {
+						if arg == "-"+cli || arg == "--"+cli {
+							if j+1 < len(cliArgs) {
+								config.file = cliArgs[j+1]
+								break
+							}
+						}
+						if strings.HasPrefix(arg, "-"+cli+"=") || strings.HasPrefix(arg, "--"+cli+"=") {
+							parts := strings.SplitN(arg, "=", 2)
+							config.file = parts[1]
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// read config file if set
 	if config.file != "" {
 		err := readConfigFile(c, config)
@@ -39,10 +77,6 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 			return err
 		}
 	}
-
-	// use reflection to deep dive into our struct
-	valueRef := reflect.ValueOf(c)
-	confType := valueRef.Elem().Type()
 
 	// parse arguments
 	parseArgs := func() error {
@@ -220,10 +254,30 @@ func readConfigFile(c interface{}, cfg config) error {
 	if err != nil {
 		return fmt.Errorf("could not open config file %s: %w", cfg.file, err)
 	}
+	defer f.Close()
 
 	err = yaml.NewDecoder(f).Decode(c)
 	if err != nil {
 		return fmt.Errorf("could not decode yaml config file %s: %w", cfg.file, err)
+	}
+
+	return nil
+}
+
+// Save writes the given config struct as YAML to a file
+func Save(path string, c interface{}) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("could not create config file %s: %w", path, err)
+	}
+	defer f.Close()
+
+	encoder := yaml.NewEncoder(f)
+	defer encoder.Close()
+
+	err = encoder.Encode(c)
+	if err != nil {
+		return fmt.Errorf("could not encode yaml config %s: %w", path, err)
 	}
 
 	return nil
