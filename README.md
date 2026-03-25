@@ -68,6 +68,38 @@ err = configstruct.Save("config.yaml", &conf)
 
 ```
 
+## Struct slices (`[]struct`) via ENV and CLI (JSON)
+
+`[]struct` fields can now be populated from `env` and `cli` tags using JSON.
+
+```Go
+type Endpoint struct {
+    User string `json:"user" yaml:"user"`
+    Pass string `json:"pass" yaml:"pass"`
+    URL  string `json:"url" yaml:"url"`
+}
+
+type Config struct {
+    Endpoints []Endpoint `env:"MY_ENDPOINTS" cli:"endpoints" yaml:"endpoints" usage:"configured endpoints as JSON"`
+}
+```
+
+Supported JSON formats:
+
+- ENV (`MY_ENDPOINTS`):
+  - JSON array (primary): `[{"user":"u1","pass":"p1","url":"https://a"},{"user":"u2","pass":"p2","url":"https://b"}]`
+  - JSON object (optional shorthand for one entry): `{"user":"u1","pass":"p1","url":"https://a"}`
+- CLI (`-endpoints`):
+  - repeated JSON object flags:
+    - `-endpoints '{"user":"u1","pass":"p1","url":"https://a"}' -endpoints '{"user":"u2","pass":"p2","url":"https://b"}'`
+  - single JSON array:
+    - `-endpoints '[{"user":"u1","pass":"p1","url":"https://a"},{"user":"u2","pass":"p2","url":"https://b"}]'`
+
+Precedence is unchanged:
+
+- Default: CLI overrides ENV (`Parse`, `WithPrecedenceCli`).
+- `WithPrecedenceEnv()`: ENV overrides CLI.
+
 ## Usage with commands
 You can also define "commands" that can be used to execute callback functions. 
 The program with global flags and a command `count` should be called like this:

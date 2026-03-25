@@ -16,6 +16,16 @@ type testConfig struct {
 	FloatValue float64 `env:"CONFIGSTRUCT_FLOAT" cli:"floatValue" usage:"float value"`
 }
 
+type endpoint struct {
+	User string `json:"user" yaml:"user"`
+	Pass string `json:"pass" yaml:"pass"`
+	URL  string `json:"url" yaml:"url"`
+}
+
+type endpointConfig struct {
+	Endpoints []endpoint `env:"CONFIGSTRUCT_ENDPOINTS" cli:"endpoints" yaml:"endpoints"`
+}
+
 func TestParse(t *testing.T) {
 	t.Run("valid cli fields", func(t *testing.T) {
 		cliArgs := []string{"command", "-hostname=localhost", "-port=8080", "-debug=true", "-floatValue=100.5"}
@@ -245,6 +255,166 @@ func TestParse(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "dynamic-host-env", conf.Hostname)
 		assert.Equal(t, tmpFile, conf.ConfigPath)
+	})
+
+	t.Run("env json array for struct slice", func(t *testing.T) {
+		os.Clearenv()
+		os.Setenv("CONFIGSTRUCT_ENDPOINTS", `[{"user":"u1","pass":"p1","url":"https://a"},{"user":"u2","pass":"p2","url":"https://b"}]`)
+
+		cliArgs := []string{"command"}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+		conf := endpointConfig{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.NoError(t, err)
+		assert.Len(t, conf.Endpoints, 2)
+		assert.Equal(t, "u1", conf.Endpoints[0].User)
+		assert.Equal(t, "https://b", conf.Endpoints[1].URL)
+	})
+
+	t.Run("env json object for struct slice", func(t *testing.T) {
+		os.Clearenv()
+		os.Setenv("CONFIGSTRUCT_ENDPOINTS", `{"user":"u1","pass":"p1","url":"https://a"}`)
+
+		cliArgs := []string{"command"}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+		conf := endpointConfig{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.NoError(t, err)
+		assert.Len(t, conf.Endpoints, 1)
+		assert.Equal(t, "u1", conf.Endpoints[0].User)
+		assert.Equal(t, "https://a", conf.Endpoints[0].URL)
+	})
+
+	t.Run("cli repeated json objects for struct slice", func(t *testing.T) {
+		os.Clearenv()
+		cliArgs := []string{
+			"command",
+			`-endpoints={"user":"u1","pass":"p1","url":"https://a"}`,
+			`-endpoints={"user":"u2","pass":"p2","url":"https://b"}`,
+		}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+		conf := endpointConfig{
+			Endpoints: []endpoint{{User: "default", Pass: "default", URL: "https://default"}},
+		}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.NoError(t, err)
+		assert.Len(t, conf.Endpoints, 2)
+		assert.Equal(t, "u1", conf.Endpoints[0].User)
+		assert.Equal(t, "u2", conf.Endpoints[1].User)
+	})
+
+	t.Run("cli single json array for struct slice", func(t *testing.T) {
+		os.Clearenv()
+		cliArgs := []string{
+			"command",
+			`-endpoints=[{"user":"u1","pass":"p1","url":"https://a"},{"user":"u2","pass":"p2","url":"https://b"}]`,
+		}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+		conf := endpointConfig{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.NoError(t, err)
+		assert.Len(t, conf.Endpoints, 2)
+		assert.Equal(t, "u1", conf.Endpoints[0].User)
+		assert.Equal(t, "u2", conf.Endpoints[1].User)
+	})
+
+	t.Run("default precedence cli over env for struct slice", func(t *testing.T) {
+		os.Clearenv()
+		os.Setenv("CONFIGSTRUCT_ENDPOINTS", `[{"user":"env","pass":"env","url":"https://env"}]`)
+
+		cliArgs := []string{
+			"command",
+			`-endpoints={"user":"cli","pass":"cli","url":"https://cli"}`,
+		}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+		conf := endpointConfig{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.NoError(t, err)
+		assert.Len(t, conf.Endpoints, 1)
+		assert.Equal(t, "cli", conf.Endpoints[0].User)
+	})
+
+	t.Run("env precedence over cli for struct slice", func(t *testing.T) {
+		os.Clearenv()
+		os.Setenv("CONFIGSTRUCT_ENDPOINTS", `[{"user":"env","pass":"env","url":"https://env"}]`)
+
+		cliArgs := []string{
+			"command",
+			`-endpoints={"user":"cli","pass":"cli","url":"https://cli"}`,
+		}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+		conf := endpointConfig{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf, WithPrecedenceEnv())
+		assert.NoError(t, err)
+		assert.Len(t, conf.Endpoints, 1)
+		assert.Equal(t, "env", conf.Endpoints[0].User)
+	})
+
+	t.Run("yaml struct slice overridden by cli", func(t *testing.T) {
+		type Config struct {
+			Endpoints []endpoint `yaml:"endpoints" cli:"endpoints"`
+		}
+
+		tmpFile := "test_slice_yaml_override.yaml"
+		defer os.Remove(tmpFile)
+
+		err := Save(tmpFile, &Config{
+			Endpoints: []endpoint{{User: "yaml", Pass: "yaml", URL: "https://yaml"}},
+		})
+		assert.NoError(t, err)
+
+		conf := Config{}
+		cliArgs := []string{
+			"command",
+			`-endpoints={"user":"cli","pass":"cli","url":"https://cli"}`,
+		}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+		err = ParseWithFlagSet(flagSet, cliArgs, &conf, WithYamlConfig(tmpFile))
+		assert.NoError(t, err)
+		assert.Len(t, conf.Endpoints, 1)
+		assert.Equal(t, "cli", conf.Endpoints[0].User)
+	})
+
+	t.Run("invalid env json returns error for struct slice", func(t *testing.T) {
+		os.Clearenv()
+		os.Setenv("CONFIGSTRUCT_ENDPOINTS", `{"user":`)
+
+		cliArgs := []string{"command"}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+		conf := endpointConfig{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.Error(t, err)
+	})
+
+	t.Run("invalid cli json returns error for struct slice", func(t *testing.T) {
+		os.Clearenv()
+		cliArgs := []string{"command", `-endpoints={"user":}`}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ContinueOnError)
+		conf := endpointConfig{}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.Error(t, err)
+	})
+
+	t.Run("struct slice keeps defaults when no input is set", func(t *testing.T) {
+		os.Clearenv()
+		cliArgs := []string{"command"}
+		flagSet := flag.NewFlagSet(cliArgs[0], flag.ExitOnError)
+		conf := endpointConfig{
+			Endpoints: []endpoint{{User: "default", Pass: "default", URL: "https://default"}},
+		}
+
+		err := ParseWithFlagSet(flagSet, cliArgs, &conf)
+		assert.NoError(t, err)
+		assert.Len(t, conf.Endpoints, 1)
+		assert.Equal(t, "default", conf.Endpoints[0].User)
 	})
 
 }

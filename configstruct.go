@@ -3,6 +3,7 @@
 package configstruct // import "github.com/pteich/configstruct"
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -117,6 +118,9 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 			cli := field.Tag.Get("cli")
 			cliAlt := field.Tag.Get("cliAlt")
 			usage := field.Tag.Get("usage")
+			structSliceValue := &structSliceFlag{
+				target: valueRef.Elem().FieldByName(field.Name),
+			}
 
 			setFlag := func(name string) error {
 				switch field.Type.Kind() {
@@ -128,6 +132,12 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 					flagSet.IntVar(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*int), name, int(value.Int()), usage)
 				case reflect.Float64:
 					flagSet.Float64Var(valueRef.Elem().FieldByName(field.Name).Addr().Interface().(*float64), name, value.Float(), usage)
+				case reflect.Slice:
+					if field.Type.Elem().Kind() == reflect.Struct {
+						flagSet.Var(structSliceValue, name, usage)
+						return nil
+					}
+					return fmt.Errorf("config cli type %s not implemented", field.Type.String())
 				default:
 					return fmt.Errorf("config cli type %s not implemented", field.Type.Kind())
 				}
@@ -157,6 +167,9 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 		for i := 0; i < confType.NumField(); i++ {
 			field := confType.Field(i)
 			env := field.Tag.Get("env")
+			if env == "" {
+				continue
+			}
 
 			envValue, found := os.LookupEnv(env)
 			if found {
@@ -178,8 +191,18 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 					if err == nil {
 						valueRef.Elem().FieldByName(field.Name).SetFloat(value)
 					}
+				case reflect.Slice:
+					if field.Type.Elem().Kind() != reflect.Struct {
+						return fmt.Errorf("config env type %s not implemented", field.Type.String())
+					}
+
+					sliceValue, err := decodeStructSliceJSON(envValue, field.Type)
+					if err != nil {
+						return fmt.Errorf("could not parse env %s for field %s: %w", env, field.Name, err)
+					}
+					valueRef.Elem().FieldByName(field.Name).Set(sliceValue)
 				default:
-					return fmt.Errorf("config env type %s not implemented", field.Type.Name())
+					return fmt.Errorf("config env type %s not implemented", field.Type.String())
 				}
 			}
 		}
@@ -219,6 +242,63 @@ func ParseWithFlagSet(flagSet *flag.FlagSet, cliArgs []string, c interface{}, op
 	}
 
 	return nil
+}
+
+type structSliceFlag struct {
+	target reflect.Value
+	seen   bool
+}
+
+func (f *structSliceFlag) String() string {
+	if !f.target.IsValid() {
+		return ""
+	}
+
+	b, err := json.Marshal(f.target.Interface())
+	if err != nil {
+		return ""
+	}
+
+	return string(b)
+}
+
+func (f *structSliceFlag) Set(value string) error {
+	if !f.target.IsValid() || !f.target.CanSet() {
+		return fmt.Errorf("slice field is not settable")
+	}
+
+	sliceValue, err := decodeStructSliceJSON(value, f.target.Type())
+	if err != nil {
+		return err
+	}
+
+	if !f.seen {
+		f.target.Set(reflect.MakeSlice(f.target.Type(), 0, 0))
+		f.seen = true
+	}
+
+	f.target.Set(reflect.AppendSlice(f.target, sliceValue))
+	return nil
+}
+
+func decodeStructSliceJSON(value string, fieldType reflect.Type) (reflect.Value, error) {
+	if fieldType.Kind() != reflect.Slice || fieldType.Elem().Kind() != reflect.Struct {
+		return reflect.Value{}, fmt.Errorf("type %s is not a slice of structs", fieldType.String())
+	}
+
+	sliceTarget := reflect.New(fieldType)
+	if err := json.Unmarshal([]byte(value), sliceTarget.Interface()); err == nil {
+		return sliceTarget.Elem(), nil
+	}
+
+	elemTarget := reflect.New(fieldType.Elem())
+	if err := json.Unmarshal([]byte(value), elemTarget.Interface()); err == nil {
+		sliceValue := reflect.MakeSlice(fieldType, 1, 1)
+		sliceValue.Index(0).Set(elemTarget.Elem())
+		return sliceValue, nil
+	}
+
+	return reflect.Value{}, fmt.Errorf("value is neither a JSON array nor a JSON object for %s", fieldType.String())
 }
 
 type structFlag struct {
